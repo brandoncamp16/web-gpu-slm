@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:28px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0"
+            style="max-width:640px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.08);">
+
+            <tr>
+              <td style="padding:22px 24px 10px 24px;">
+                <img src="cid:test" alt="Test" height="36" style="display:block;border:0;outline:none;">
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 24px 18px 24px;">
+                <div style="font-size:18px;font-weight:700;color:#0f172a;margin:0 0 6px 0;">
+                  New contact form submission
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 24px 18px 24px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f8fafc;width:140px;font-weight:700;color:#0f172a;">Name</td>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;color:#0f172a;">{{name}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;color:#0f172a;">Email</td>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;color:#0f172a;">
+                      <a href="mailto:{{email}}" style="color:#2563eb;text-decoration:none;">{{email}}</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:700;color:#0f172a;">Phone</td>
+                    <td style="padding:10px 12px;border:1px solid #e5e7eb;color:#0f172a;">{{phone}}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 24px 18px 24px;">
+                <div style="font-size:14px;font-weight:700;color:#0f172a;margin:0 0 8px 0;">Message</div>
+                <div style="font-size:14px;line-height:1.55;color:#0f172a;border:1px solid #e5e7eb;background:#ffffff;border-radius:12px;padding:14px;">
+                  {{messageHtml}}
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:0 24px 22px 24px;">
+                <div style="font-size:12px;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:12px;">
+                  <div><strong style="color:#64748b;">IP:</strong> {{ip}}</div>
+                  <div style="margin-top:6px;"><strong style="color:#64748b;">User-Agent:</strong> {{ua}}</div>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:14px 24px;background:#ffffff;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:12px;">
+                This email was generated automatically.
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

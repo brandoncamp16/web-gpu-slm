@@ -1,0 +1,6 @@
+[Unit]
+Description=Docker Website stage + build all docker-website-*:<sha> images
+
+[Service]
+Type=oneshot
+ExecStart=%h/deploy/receive_stage_build.sh
