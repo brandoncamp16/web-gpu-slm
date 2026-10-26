@@ -3,7 +3,23 @@ set -euo pipefail
 
 STATE="$HOME/deploy/state"
 RELEASES="$HOME/deploy/releases"
+INCOMING="$HOME/deploy/incoming"
+BUILDROOT="$HOME/deploy/build"
 RUNNER="$HOME/siteCodebase"
+
+mkdir -p "$STATE" "$RELEASES" "$INCOMING" "$BUILDROOT" "$RUNNER" /tmp
+
+# Verify Docker Compose is installed
+command -v docker &> /dev/null || {
+  echo "ERROR: [deploy.sh] 'docker' command is not installed or not found in PATH." >&2
+  exit 1
+}
+docker compose version &> /dev/null || {
+  echo "ERROR: [deploy.sh] 'docker compose' plugin is not installed or not available." >&2
+  exit 1
+}
+
+trap 'echo "ERROR: deploy.sh failed at line $LINENO (Command: $BASH_COMMAND)" >&2' ERR
 
 PENDING_FILE="$STATE/pending_sha"
 GOOD_FILE="$STATE/good_shas"

@@ -6,6 +6,16 @@ STATE="$HOME/deploy/state"
 RELEASES="$HOME/deploy/releases"
 BUILDROOT="$HOME/deploy/build"
 
+mkdir -p "$INCOMING" "$STATE" "$RELEASES" "$BUILDROOT" /tmp
+
+# Verify Docker is installed
+command -v docker &> /dev/null || {
+  echo "ERROR: [receive_stage_build.sh] 'docker' command is not installed or not found in PATH." >&2
+  exit 1
+}
+
+trap 'echo "ERROR: receive_stage_build.sh failed at line $LINENO (Command: $BASH_COMMAND)" >&2' ERR
+
 LOCK="/tmp/docker-website.lock"
 exec 9>"$LOCK"
 flock -n 9 || { echo "Stage/build already running; exiting."; exit 0; }
