@@ -1,4 +1,4 @@
-FROM node:18
+FROM node:20
 
 WORKDIR /usr/src/app
 
@@ -6,10 +6,10 @@ WORKDIR /usr/src/app
 COPY backend/package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --omit=dev
 
-# Create frontend directory
-RUN mkdir -p frontend
+# Dataset files (VizWiz annotations + cached images) live in a volume mounted here
+RUN mkdir -p data
 
 # Copy the server code
 COPY backend/ .

@@ -1,46 +1,382 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Us | Docker Website Test</title>
-    <link rel="stylesheet" href="/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGPU SLM Accessibility Benchmark</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <main class="container">
-        <!-- Hero Image mapped from volume -->
-        <img src="/images/test.jpg" alt="Hero Image" class="hero-image">
-        
-        <section class="contact-section">
-            <h1>Get in Touch</h1>
-            <p>Send us a message and we'll get back to you shortly.</p>
-            
-            <form id="contactForm" class="contact-form">
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="phone">Phone</label>
-                    <input type="tel" id="phone" name="phone" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="message">Message</label>
-                    <textarea id="message" name="message" rows="5" required></textarea>
-                </div>
-                
-                <button type="submit" id="submitBtn">Send Message</button>
-                <div id="formStatus" class="form-status"></div>
-            </form>
-        </section>
-    </main>
-    <script src="/js/main.js"></script>
+  <header>
+    <h1>WebGPU Vision SLM Accessibility Benchmark</h1>
+    <p>Zero-bandwidth, privacy-preserving local image description benchmark comparing a client-side WebGPU Small Language Model against cloud vision models (OpenAI GPT-4o / GPT-4o mini).</p>
+    <nav class="tabs" aria-label="Views">
+      <a href="#/benchmark" data-view="benchmark">Run Benchmark</a>
+      <a href="#/results" data-view="results">Results &amp; Stats</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===== View: Run benchmark ===== -->
+    <div id="view-benchmark" class="container view">
+      <section class="panel" aria-labelledby="setup-heading">
+        <h2 id="setup-heading" tabindex="-1">1. Environment &amp; Model Setup</h2>
+        <div id="crash-banner" class="status-box info" role="alert" hidden></div>
+        <p id="setup-summary" class="setup-summary hint" hidden></p>
+        <div class="setup-controls">
+        <div id="webgpu-status" class="status-box info" role="status">Checking WebGPU compatibility...</div>
+        <div id="backend-status" class="status-box info" role="status">Checking backend...</div>
+
+        <div class="two-col">
+          <div class="form-group">
+            <label for="model-select">Local Vision Model</label>
+            <select id="model-select"></select>
+          </div>
+          <div class="form-group">
+            <label for="precision-select">Precision</label>
+            <select id="precision-select"></select>
+          </div>
+        </div>
+        <p id="model-hint" class="hint" aria-live="polite"></p>
+
+        <div class="form-group spaced">
+          <label for="device-name">Device Name (saved with each run so results can be compared by device)</label>
+          <input type="text" id="device-name" maxlength="100" autocomplete="off">
+        </div>
+
+        <label class="checkbox"><input type="checkbox" id="warmup-input" checked> Warm Up After Loading (compiles GPU shaders so the first measured run isn't a cold start)</label>
+
+        <button id="load-model-btn">Load Model into WebGPU</button>
+        </div>
+        <div id="load-progress" class="hint" role="status"></div>
+        <progress id="load-bar" class="load-bar" max="1" value="0" hidden aria-label="Model loading and generation progress"></progress>
+        <div id="console-log" class="console-log" role="log" aria-label="Activity log" tabindex="0"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="input-heading">
+        <h2 id="input-heading">2. Test Image &amp; Prompt</h2>
+
+        <fieldset class="mode-switch">
+          <legend class="visually-hidden">Test mode</legend>
+          <label><input type="radio" name="test-mode" value="single" checked> Upload Images</label>
+          <label><input type="radio" name="test-mode" value="dataset"> VizWiz Dataset</label>
+        </fieldset>
+
+        <div class="form-group" id="upload-group">
+          <label for="image-input">Upload Images (one image runs on its own; several run as a batch)</label>
+          <input type="file" id="image-input" accept="image/*" multiple>
+        </div>
+
+        <div id="dataset-controls" hidden>
+          <p id="dataset-status" class="hint" role="status">Loading dataset info...</p>
+          <div class="two-col">
+            <div class="form-group">
+              <label for="batch-size">Number of Images</label>
+              <input type="number" id="batch-size" min="1" max="200" value="20" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label for="batch-seed">Seed (optional, repeats the same random sample)</label>
+              <input type="text" id="batch-seed" inputmode="numeric" placeholder="Random" maxlength="10">
+            </div>
+          </div>
+          <label class="checkbox"><input type="checkbox" id="batch-skip-tested" checked> Skip Images Already Tested With This Model and Precision (random samples only)</label>
+          <p id="batch-seed-note" class="hint" hidden>A seed always picks the same images, so already-tested images are not skipped.</p>
+          <p id="batch-cost" class="hint"></p>
+          <p class="hint">Images and human captions: VizWiz-Captions validation set (Gurari et al., ECCV 2020), <a href="https://vizwiz.org/tasks-and-datasets/image-captioning/" target="_blank" rel="noopener">vizwiz.org</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.</p>
+        </div>
+
+        <div class="preview-container" id="drop-zone">
+          <span id="placeholder-text" class="hint">Drop images here, choose files, load the sample, or use the camera</span>
+          <img id="image-preview" hidden alt="Selected test image">
+          <div id="upload-grid" class="upload-grid" hidden></div>
+          <video id="camera-preview" hidden autoplay playsinline muted aria-label="Camera preview"></video>
+        </div>
+
+        <div id="upload-toolbar" class="upload-toolbar" hidden>
+          <span id="upload-count" class="hint"></span>
+          <button id="clear-uploads-btn" class="secondary inline">Clear All</button>
+        </div>
+
+        <div class="button-row" id="single-buttons">
+          <button id="sample-btn" class="secondary">Load Sample Image</button>
+          <button id="cam-btn" class="secondary">Start Camera</button>
+        </div>
+
+        <div class="form-group spaced">
+          <label for="prompt-input">Accessibility Prompt (sent unchanged to both the local and cloud model)</label>
+          <input type="text" id="prompt-input" value="Describe what is in this image for a blind user concisely.">
+        </div>
+
+        <div class="two-col">
+          <div class="form-group">
+            <label for="cloud-model-select">Cloud Baseline / Reference</label>
+            <select id="cloud-model-select">
+              <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+              <option value="gpt-4o">OpenAI gpt-4o</option>
+              <option value="">None (type a reference manually)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="run-label">Run Label (e.g. "vizwiz-batch-1")</label>
+            <input type="text" id="run-label" placeholder="Optional" maxlength="200">
+          </div>
+        </div>
+
+        <button id="run-btn" disabled>Run Benchmark</button>
+        <div id="run-status" class="hint" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel full-width" aria-labelledby="output-heading">
+        <h2 id="output-heading">3. Description Output &amp; Quality Scores</h2>
+
+        <div class="two-col">
+          <div>
+            <label for="local-output"><strong>Local WebGPU SLM Output</strong></label>
+            <textarea id="local-output" readonly placeholder="Local output will appear here..."></textarea>
+          </div>
+          <div>
+            <label for="cloud-reference"><strong id="reference-label">Cloud Baseline (Reference)</strong></label>
+            <textarea id="cloud-reference" placeholder="Cloud output will appear here. You can also type or paste a human-written reference."></textarea>
+          </div>
+        </div>
+
+        <!-- Dataset batch progress (VizWiz mode) -->
+        <div id="batch-panel" class="batch-panel" hidden>
+          <div class="batch-progress">
+            <progress id="batch-progress-bar" max="1" value="0"></progress>
+            <span id="batch-progress-text" role="status" aria-live="polite"></span>
+            <button id="batch-stop-btn" class="secondary inline">Stop After This Image</button>
+          </div>
+          <div class="two-col" id="batch-live">
+            <div id="batch-captions-col">
+              <h3 class="subheading">Human Captions for This Image</h3>
+              <ol id="human-captions" class="human-captions"></ol>
+            </div>
+            <div>
+              <h3 class="subheading">Scores for This Image <span class="hint">(BLEU-4 / chrF)</span></h3>
+              <table class="data-table">
+                <tbody>
+                  <tr><th scope="row">Local vs Human Captions</th><td id="img-local-human">–</td></tr>
+                  <tr><th scope="row">Cloud vs Human Captions</th><td id="img-cloud-human">–</td></tr>
+                  <tr><th scope="row">Local vs Cloud (cloud = baseline)</th><td id="img-local-cloud">–</td></tr>
+                </tbody>
+              </table>
+              <p id="batch-running" class="hint"></p>
+            </div>
+          </div>
+          <div id="batch-summary" class="batch-summary" hidden></div>
+          <div id="batch-viewer" class="batch-viewer" hidden></div>
+        </div>
+
+        <div class="quick-metrics" aria-label="Last run timing">
+          <span>Local: <strong id="m-local-summary">–</strong></span>
+          <span>Cloud: <strong id="m-cloud-summary">–</strong></span>
+        </div>
+
+        <div class="score-row">
+          <span>BLEU-4: <strong id="bleu-score" class="score">N/A</strong></span>
+          <span>chrF: <strong id="chrf-score" class="score">N/A</strong></span>
+          <span class="hint">sacreBLEU-compatible, 0–100. Local output is scored against the reference.</span>
+          <div class="score-actions">
+            <button id="update-ref-btn" class="secondary inline" hidden>Save Edited Reference</button>
+            <a id="view-report-link" class="button-link" href="#/results" hidden>View Run Report</a>
+            <a id="view-batch-link" class="button-link" href="#/results" hidden>View Batch Results</a>
+            <a class="button-link secondary" href="#/results">View All Results</a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== View: Overall results dashboard ===== -->
+    <div id="view-results" class="dashboard view" hidden>
+      <div class="dashboard-head">
+        <h2 id="results-heading" tabindex="-1">Results &amp; Stats</h2>
+        <p id="stats-summary" class="hint" role="status"></p>
+      </div>
+
+      <div class="toolbar">
+        <div class="form-group">
+          <label for="stats-label-filter">Label</label>
+          <select id="stats-label-filter"><option value="">All Runs</option></select>
+        </div>
+        <div class="form-group">
+          <label for="stats-device-filter">Device</label>
+          <select id="stats-device-filter"><option value="">All Devices</option></select>
+        </div>
+        <label class="checkbox"><input type="checkbox" id="include-cold"> Include Cold-Start Runs</label>
+        <div class="toolbar-buttons">
+          <button id="refresh-stats-btn" class="secondary inline">Refresh</button>
+          <button id="export-csv-btn" class="inline">Export CSV</button>
+          <button id="export-json-btn" class="inline">Export JSON</button>
+        </div>
+      </div>
+
+      <section id="batch-viewer-section" class="chart-card batch-viewer" hidden aria-label="Batch viewer"></section>
+
+      <div id="kpi-row" class="kpi-row"></div>
+
+      <section id="findings-card" class="chart-card findings" hidden aria-labelledby="findings-heading">
+        <h3 id="findings-heading">Key Findings</h3>
+        <p class="chart-sub">Generated from the stats below for the selected runs</p>
+        <ul id="findings-list" class="findings-list"></ul>
+      </section>
+
+      <section id="judge-section" class="chart-card" aria-labelledby="judge-heading">
+        <div class="judge-head">
+          <div>
+            <h3 id="judge-heading">AI Judge: Local vs Cloud</h3>
+            <p id="judge-meta" class="chart-sub">Loading...</p>
+          </div>
+          <button id="judge-now-btn" class="secondary inline">Review Latest Runs Now</button>
+        </div>
+        <div id="judge-content"></div>
+        <p class="hint judge-note">An OpenAI model reviews the last 10 runs that have both a local and a cloud description (photos included), then again after every 10 new runs. It covers all labels, not just the filter above. The judge comes from the same vendor as the cloud baseline and may favor its style, so treat it as qualitative support for the metrics.</p>
+      </section>
+
+      <section id="human-section" class="chart-card" hidden aria-labelledby="human-heading">
+        <h3 id="human-heading">Agreement With Human Captions (VizWiz)</h3>
+        <p class="chart-sub">Each output is scored against the image's human captions (multi-reference sacreBLEU, 0–100). "Reaches" = local corpus score ÷ cloud corpus score on the same images. <span class="better-higher">↑ Higher is better</span> for every score here.</p>
+        <div id="human-kpis" class="kpi-row"></div>
+        <div id="chart-human" class="chart"></div>
+        <div class="table-scroll">
+          <table class="data-table stack-mobile">
+            <thead>
+              <tr>
+                <th scope="col">Local Model</th><th scope="col">Cloud Baseline</th><th scope="col">Images</th>
+                <th scope="col">Local vs Human<br><span class="hint">corpus BLEU-4 / chrF · ↑ higher is better</span></th>
+                <th scope="col">Cloud vs Human<br><span class="hint">corpus BLEU-4 / chrF · ↑ higher is better</span></th>
+                <th scope="col">Local Reaches<br><span class="hint">BLEU-4 / chrF · ↑ higher is better</span></th>
+                <th scope="col">Local vs Cloud<br><span class="hint">corpus BLEU-4 / chrF · ↑ higher is better</span></th>
+              </tr>
+            </thead>
+            <tbody id="human-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Latency by Model</h3>
+          <p class="chart-sub">Median milliseconds · <span class="better-lower">↓ Lower is better</span></p>
+          <div id="chart-latency" class="chart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Description Quality</h3>
+          <p class="chart-sub">Mean score of the local output against each reference, 0–100 · <span class="better-higher">↑ Higher is better</span></p>
+          <div id="chart-quality" class="chart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Generation Speed</h3>
+          <p class="chart-sub">Mean tokens per second after the first token · <span class="better-higher">↑ Higher is better</span></p>
+          <div id="chart-speed" class="chart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Output Length</h3>
+          <p class="chart-sub">Mean words per description · <span class="better-context">Context only: shorter isn't automatically better</span></p>
+          <div id="chart-words" class="chart"></div>
+        </div>
+        <div class="chart-card full-width">
+          <h3>Total Latency per Run</h3>
+          <p class="chart-sub">Milliseconds, oldest run first · <span class="better-lower">↓ Lower is better</span></p>
+          <div id="chart-runs" class="chart"></div>
+        </div>
+      </div>
+
+      <section class="chart-card" aria-labelledby="runs-heading">
+        <div class="judge-head">
+          <div>
+            <h3 id="runs-heading">Past Runs</h3>
+            <p class="chart-sub">Select a run to open its report, or tick runs to delete them</p>
+          </div>
+          <button id="delete-selected-btn" class="danger inline" disabled>Delete Selected</button>
+          <div class="form-group runs-sort">
+            <label for="runs-sort">Sort By</label>
+            <select id="runs-sort">
+              <option value="newest">Newest First</option>
+              <option value="device">Device</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table runs-table stack-mobile">
+            <thead>
+              <tr>
+                <th scope="col" class="select-col"><input type="checkbox" id="select-all-runs" aria-label="Select all runs shown"></th>
+                <th scope="col">Time</th><th scope="col">Device</th><th scope="col">Label</th><th scope="col">Image</th>
+                <th scope="col">Local TTFT / Total<br><span class="hint">ms · ↓ lower is better</span></th><th scope="col">Cloud</th><th scope="col">Cloud TTFT / Total<br><span class="hint">ms · ↓ lower is better</span></th>
+                <th scope="col">BLEU-4<br><span class="hint">↑ higher is better</span></th><th scope="col">chrF<br><span class="hint">↑ higher is better</span></th>
+              </tr>
+            </thead>
+            <tbody id="runs-body"><tr><td colspan="10" class="hint">No runs yet.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <details class="chart-card detailed-stats">
+        <summary>Detailed Statistics (tables)</summary>
+        <h4 class="subheading">Performance and Network</h4>
+        <div class="table-scroll">
+          <table class="data-table stack-mobile">
+            <thead>
+              <tr>
+                <th scope="col">Model</th><th scope="col">Runs</th>
+                <th scope="col">Time to First Token (ms)<br><span class="hint">mean ± sd (median) · ↓ lower is better</span></th>
+                <th scope="col">Total Latency (ms)<br><span class="hint">mean ± sd (median) · ↓ lower is better</span></th>
+                <th scope="col">p95 Latency (ms)<br><span class="hint">↓ lower is better</span></th>
+                <th scope="col">Tokens/s<br><span class="hint">mean ± sd · ↑ higher is better</span></th>
+                <th scope="col">Words<br><span class="hint">mean ± sd · context only</span></th>
+                <th scope="col">Network Requests<br><span class="hint">per description · ↓ lower is better</span></th>
+                <th scope="col">Data Sent<br><span class="hint">avg · ↓ lower is better</span></th>
+                <th scope="col">Data Received<br><span class="hint">avg · ↓ lower is better</span></th>
+              </tr>
+            </thead>
+            <tbody id="perf-body"><tr><td colspan="10" class="hint">No runs yet.</td></tr></tbody>
+          </table>
+        </div>
+
+        <h4 class="subheading">Description Quality (local vs. reference)</h4>
+        <div class="table-scroll">
+          <table class="data-table stack-mobile">
+            <thead>
+              <tr>
+                <th scope="col">Local Model</th><th scope="col">Reference</th><th scope="col">Runs</th>
+                <th scope="col">BLEU-4<br><span class="hint">mean ± sd · ↑ higher is better</span></th>
+                <th scope="col">chrF<br><span class="hint">mean ± sd · ↑ higher is better</span></th>
+                <th scope="col">Corpus BLEU-4<br><span class="hint">↑ higher is better</span></th><th scope="col">Corpus chrF<br><span class="hint">↑ higher is better</span></th>
+              </tr>
+            </thead>
+            <tbody id="quality-body"><tr><td colspan="7" class="hint">No scored runs yet.</td></tr></tbody>
+          </table>
+        </div>
+      </details>
+
+      <section class="chart-card manage-data" aria-labelledby="manage-heading">
+        <h3 id="manage-heading">Manage Data</h3>
+        <p class="chart-sub">Deleting can't be undone. Export CSV or JSON first if you may need the results later.</p>
+        <div class="manage-actions">
+          <div>
+            <button id="delete-filtered-btn" class="danger inline" disabled>Delete Runs Matching Filter</button>
+            <p id="delete-filtered-hint" class="hint">Pick a label or device above to delete just those runs.</p>
+          </div>
+          <div>
+            <button id="clear-db-btn" class="danger inline">Clear Entire Database</button>
+            <p class="hint">Removes every run, stored test image, AI judge review and diagnostics log. The downloaded VizWiz data is kept.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== View: Single run report ===== -->
+    <div id="view-report" class="dashboard view" hidden>
+      <div class="dashboard-head">
+        <a href="#/results" class="back-link">← All results</a>
+        <h2 id="report-heading" tabindex="-1">Run Report</h2>
+      </div>
+      <div id="report-content"></div>
+    </div>
+  </main>
+
+  <canvas id="capture-canvas" hidden></canvas>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

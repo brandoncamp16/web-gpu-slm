@@ -1,0 +1,5 @@
+# Holds OPENAI_API_KEY. Never commit it.
+secrets.env
+node_modules/
+certs/
+backend/data/

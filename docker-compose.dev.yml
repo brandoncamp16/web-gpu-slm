@@ -10,11 +10,3 @@ services:
       timeout: 3s
       retries: 3
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: mailhog
-    networks:
-      - docker-website-network
-    ports:
-      - "1025:1025"
-      - "8025:8025"

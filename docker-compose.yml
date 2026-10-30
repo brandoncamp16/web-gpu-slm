@@ -1,61 +1,60 @@
+# WebGPU SLM Accessibility Benchmark: base services.
+# Merged with docker-compose.dev.yml (http) or docker-compose.prod.yml (https) via COMPOSE_FILE
+# in .env / prod.env.
 services:
+  # nginx: serves the static frontend and proxies /api to the backend
   frontend:
-    image: docker-website-frontend:${RELEASE_SHA:-dev}
+    image: webgpu-slm-frontend:latest
     build:
       context: .
       dockerfile: frontend/Dockerfile
     depends_on:
       - backend
     networks:
-      - docker-website-network
-    environment:
-      API_URL: ${API_URL}
-    volumes:
-      - ./frontend/images:/usr/share/nginx/html/images
+      - webgpu-slm-network
     healthcheck:
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
+  # Node.js/Express API: OpenAI cloud baseline, scoring, results storage, VizWiz data, AI judge
   backend:
-    image: docker-website-backend:${RELEASE_SHA:-dev}
+    image: webgpu-slm-backend:latest
     build:
       context: .
       dockerfile: backend/Dockerfile
     depends_on:
       mongodb:
         condition: service_healthy
+    # OPENAI_API_KEY (and optional JUDGE_MODEL) live in secrets.env (gitignored). See secrets.env.example.
+    env_file:
+      - path: ./secrets.env
+        required: false
     environment:
       MONGODB_URI: ${MONGODB_URI}
-      JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: ${NODE_ENV}
       CORS_ORIGIN: ${CORS_ORIGIN}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      EMAIL_FROM: ${EMAIL_FROM}
-      CONTACT_TO: ${CONTACT_TO}
-      ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD}
     networks:
-      - docker-website-network
+      - webgpu-slm-network
     restart: unless-stopped
     volumes:
-      - ./frontend/images:/usr/src/app/frontend/images
+      # VizWiz annotations, cached dataset images, and test images stored with runs
+      - app_data:/usr/src/app/data
 
+  # MongoDB: benchmark runs, AI judge reviews, browser diagnostics
   mongodb:
     image: mongo:4.4.6
     volumes:
       - mongodb_data:/data/db
       - ./backend/mongo-init:/docker-entrypoint-initdb.d
     networks:
-      - docker-website-network
+      - webgpu-slm-network
     environment:
       MONGO_INITDB_ROOT_USERNAME: MongoAdmin
       MONGO_INITDB_ROOT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD}
+      # Database name kept from the original setup so existing stored runs stay in place
       MONGO_INITDB_DATABASE: docker-website
-      MONGODB_INITDB_AUTH_DATABASE: docker-website
     healthcheck:
       test: ["CMD", "mongo", "--quiet", "admin", "--eval", "db.adminCommand({ping:1})"]
       interval: 10s
@@ -65,8 +64,9 @@ services:
     command: ["--auth"]
 
 networks:
-  docker-website-network:
+  webgpu-slm-network:
     driver: bridge
 
 volumes:
-  mongodb_data: 
+  mongodb_data:
+  app_data:
