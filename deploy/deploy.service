@@ -1,6 +1,0 @@
-[Unit]
-Description=Docker Website midnight deploy pending sha (health gated + rollback to good_shas)
-
-[Service]
-Type=oneshot
-ExecStart=%h/deploy/deploy.sh

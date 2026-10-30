@@ -1,6 +1,0 @@
-[Unit]
-Description=Poll Docker Website production branch and ship to prod if changed
-
-[Service]
-Type=oneshot
-ExecStart=%h/deploy/poll_and_ship.sh
